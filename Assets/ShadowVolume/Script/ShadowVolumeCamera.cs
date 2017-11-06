@@ -144,7 +144,7 @@ public class ShadowVolumeCamera : MonoBehaviour
 
         ReleaseSVOs();
 
-        ShadowVolumeCombined[] combinedObjs = static_combinedSVOs == null ? FindObjectsOfType<ShadowVolumeCombined>() : static_combinedSVOs;
+        ShadowVolumeCombined[] combinedObjs = static_combinedSVOs == null || !Application.isPlaying ? FindObjectsOfType<ShadowVolumeCombined>() : static_combinedSVOs;
         static_combinedSVOs = combinedObjs;
         if (combinedObjs != null && combinedObjs.Length > 0)
         {
@@ -165,12 +165,12 @@ public class ShadowVolumeCamera : MonoBehaviour
                     }
                 }
             }
-            cbAfterAlpha.CB.DrawMesh(screenMesh, Matrix4x4.identity, drawingMtrl, 0, 2);
+            cbAfterAlpha.CB.DrawMesh(screenMesh, Matrix4x4.identity, drawingMtrl, 0, isRenderTextureComposite ? 6 : 2);
         }
         else
         {
             cbAfterAlpha.CB.DrawMesh(screenMesh, Matrix4x4.identity, drawingMtrl, 0, 3);
-            ShadowVolumeObject[] svObjs = svos == null ? FindObjectsOfType<ShadowVolumeObject>() : svos;
+            ShadowVolumeObject[] svObjs = svos == null || !Application.isPlaying ? FindObjectsOfType<ShadowVolumeObject>() : svos;
             static_svos = svObjs;
             UpdateBounds();
             if (svObjs != null)
