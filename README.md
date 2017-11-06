@@ -10,7 +10,7 @@ In this case, Shadow Volume is a solution. It is particularly suitable for Toon-
 
 ### Usage
 
-Scene : Assets/ShadowVolume/Example/Test1.unity
+Scene : Assets/ShadowVolume/Example/Test1.unity Test2.unity
 
 Editor : Window->Lighting->Shadow Volume Setting
 
