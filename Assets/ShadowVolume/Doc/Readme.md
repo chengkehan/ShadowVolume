@@ -1,6 +1,6 @@
-# Shadow Volume
+﻿# Shadow Volume 0.0.1
 
-Shadow Volume for Static-Scene-Object of Unity
+You can bake static-shadow using Shadow Volume.
 
 ### Advantage
 
