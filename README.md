@@ -13,3 +13,5 @@ In this case, Shadow Volume is a solution. It is particularly suitable for Toon-
 Scene : Assets/ShadowVolume/Example/Test1.unity
 
 Editor : Window->Lighting->Shadow Volume Setting
+
+> ![img](Screenshot.jpg)
