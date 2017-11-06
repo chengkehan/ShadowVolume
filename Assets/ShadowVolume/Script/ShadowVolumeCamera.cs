@@ -106,6 +106,7 @@ public class ShadowVolumeCamera : MonoBehaviour
         cbBeforeOpaque.AddToCamera(mainCam);
 
         mainCam.allowMSAA = isRenderTextureComposite ? false : anti_aliasing;
+        mainCam.allowHDR = false; // HDR is not supported
 
         cbBeforeOpaque.CB.Clear();
         if (isRenderTextureComposite)
