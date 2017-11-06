@@ -27,6 +27,10 @@ public class ShadowVolumeCamera : MonoBehaviour
     [HideInInspector]
     public bool anti_aliasing = true;
 
+    [SerializeField]
+    [HideInInspector]
+    public float shadowDistance = 20.0f;
+
     private const string CB_NAME = "Shadow Volume Drawing CommandBuffer";
 
     private Material drawingMtrl = null;
@@ -129,6 +133,8 @@ public class ShadowVolumeCamera : MonoBehaviour
 
     private void UpdateCommandBuffer_AfterAlpha(ShadowVolumeObject[] svos)
     {
+        //UpdateShadowDistanceKeywords();
+
         ACommandBuffer cbAfterAlpha = GetAfterAlphaCB();
 
         cbAfterAlpha.AddToCamera(mainCam);
@@ -762,6 +768,23 @@ public class ShadowVolumeCamera : MonoBehaviour
         {
             imageEffects.Clear();
             imageEffects = null;
+        }
+    }
+
+    private void UpdateShadowDistanceKeywords()
+    {
+        if(drawingMtrl != null)
+        {
+            // Enable Shadow Distance
+            if (Mathf.Approximately(shadowDistance, 0.0f))
+            {
+                drawingMtrl.EnableKeyword("SHADOW_DISTANCE_ON");
+            }
+            // Disable Shadow Distance
+            else
+            {
+                drawingMtrl.DisableKeyword("SHADOW_DISTANCE_ON");
+            }
         }
     }
 
