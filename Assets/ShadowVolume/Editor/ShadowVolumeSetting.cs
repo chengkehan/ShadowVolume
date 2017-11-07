@@ -310,6 +310,7 @@ public class ShadowVolumeSetting : EditorWindow
             svObj.sourceMeshFilter = completeBakingTask.Transform.GetComponent<MeshFilter>();
             svObj.meshFilter = mf;
 			svObj.l2w = mf.transform.localToWorldMatrix;
+            svObj.wPos = mf.transform.position;
         }
         else
         {
@@ -319,6 +320,7 @@ public class ShadowVolumeSetting : EditorWindow
             svObj.transform.localPosition = completeBakingTask.Transform.position;
 
 			svObj.l2w = svObj.meshFilter.transform.localToWorldMatrix;
+            svObj.wPos = svObj.meshFilter.transform.position;
 
             MeshFilter mf = svObj.gameObject.GetComponent<MeshFilter>();
             if (mf == null)
