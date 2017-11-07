@@ -22,6 +22,10 @@ public class ShadowVolumeObject : MonoBehaviour
 	[HideInInspector]
 	public Matrix4x4 l2w;
 
+    [SerializeField]
+    [HideInInspector]
+    public Vector3 wPos;
+
     public bool IsVisible()
     {
         return sourceMeshFilter == null || sourceMeshRenderer == null || meshFilter == null ? false : sourceMeshRenderer.isVisible;

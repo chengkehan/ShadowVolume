@@ -27,6 +27,10 @@ public class ShadowVolumeCamera : MonoBehaviour
     [HideInInspector]
     public bool anti_aliasing = true;
 
+    [SerializeField]
+    [HideInInspector]
+    public float shadowDistance = 0.0f;
+
     private const string CB_NAME = "Shadow Volume Drawing CommandBuffer";
 
     private Material drawingMtrl = null;
@@ -50,6 +54,8 @@ public class ShadowVolumeCamera : MonoBehaviour
     private int shadowVolumeRT = 0;
 
 	private int shadowVolumeColorRT = 0;
+
+    private int shadowDistanceUniformId = 0;
 
     private SMAA smaa = null;
 
@@ -89,6 +95,7 @@ public class ShadowVolumeCamera : MonoBehaviour
                     svc.isTwoSideStencil = asvc.isTwoSideStencil;
                     svc.isRenderTextureComposite = asvc.isRenderTextureComposite;
                     svc.anti_aliasing = asvc.anti_aliasing;
+                    svc.shadowDistance = asvc.shadowDistance;
                 }
                 svc.Update();
                 svc.UpdateCommandBuffers();
@@ -175,9 +182,12 @@ public class ShadowVolumeCamera : MonoBehaviour
             UpdateBounds();
             if (svObjs != null)
             {
+                Vector3 camWPos = mainCam.transform.position;
+                bool isShadowDistanceEnabled = IsShadowDistanceEnabled();
+
                 foreach (var svObj in svObjs)
                 {
-                    if (svObj.IsVisible())
+                    if(IsShadowVolulmeObjectVisible(svObj, isShadowDistanceEnabled, ref camWPos))
                     {
                         MeshFilter mf = svObj.meshFilter;
                         if (mf != null && mf.sharedMesh != null)
@@ -410,6 +420,7 @@ public class ShadowVolumeCamera : MonoBehaviour
 
         shadowVolumeRT = Shader.PropertyToID("_ShadowVolumeRT");
 		shadowVolumeColorRT = Shader.PropertyToID("_ShadowVolumeColorRT");
+        shadowDistanceUniformId = Shader.PropertyToID("_ShadowVolumeDistance");
 
         mainCam = GetComponent<Camera>();
 
@@ -476,6 +487,7 @@ public class ShadowVolumeCamera : MonoBehaviour
             svc.isTwoSideStencil = isTwoSideStencil;
             svc.isRenderTextureComposite = isRenderTextureComposite;
             svc.anti_aliasing = anti_aliasing;
+            svc.shadowDistance = shadowDistance;
         }
 #endif
     }
@@ -529,6 +541,10 @@ public class ShadowVolumeCamera : MonoBehaviour
     {
         if(drawingMtrl != null)
         {
+            if (IsShadowDistanceEnabled())
+            {
+                drawingMtrl.SetFloat(shadowDistanceUniformId, shadowDistance);
+            }
             drawingMtrl.SetColor(shadowColorUniformName, shadowColor);
         }
     }
@@ -763,6 +779,24 @@ public class ShadowVolumeCamera : MonoBehaviour
             imageEffects.Clear();
             imageEffects = null;
         }
+    }
+
+    private bool IsShadowDistanceEnabled()
+    {
+        return shadowDistance > 0.0001f;
+    }
+
+    private bool IsShadowVolulmeObjectVisible(ShadowVolumeObject svo, bool isShadowDistanceEnabled, ref Vector3 camWPos)
+    {
+        bool visible = svo.IsVisible();
+
+        if(isShadowDistanceEnabled)
+        {
+            float dist = (camWPos - svo.wPos).magnitude;
+            visible = dist < shadowDistance;
+        }
+
+        return visible;
     }
 
     private void ReleaseSVOs()

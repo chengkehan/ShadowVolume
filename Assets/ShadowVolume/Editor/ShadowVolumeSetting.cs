@@ -19,8 +19,8 @@ public class ShadowVolumeSetting : EditorWindow
         {
             s_instance = EditorWindow.CreateInstance<ShadowVolumeSetting>();
             s_instance.name = "Shadow Volume Setting";
-            s_instance.minSize = new Vector2(440, 330);
-            s_instance.maxSize = new Vector2(440, 330);
+            s_instance.minSize = new Vector2(440, 340);
+            s_instance.maxSize = new Vector2(440, 340);
         }
         s_instance.ShowUtility();
     }
@@ -310,6 +310,7 @@ public class ShadowVolumeSetting : EditorWindow
             svObj.sourceMeshFilter = completeBakingTask.Transform.GetComponent<MeshFilter>();
             svObj.meshFilter = mf;
 			svObj.l2w = mf.transform.localToWorldMatrix;
+            svObj.wPos = mf.transform.position;
         }
         else
         {
@@ -319,6 +320,7 @@ public class ShadowVolumeSetting : EditorWindow
             svObj.transform.localPosition = completeBakingTask.Transform.position;
 
 			svObj.l2w = svObj.meshFilter.transform.localToWorldMatrix;
+            svObj.wPos = svObj.meshFilter.transform.position;
 
             MeshFilter mf = svObj.gameObject.GetComponent<MeshFilter>();
             if (mf == null)
@@ -550,6 +552,16 @@ public class ShadowVolumeSetting : EditorWindow
                     {
                         Selection.activeGameObject = null;
                         root.gameObject.hideFlags = svvb ? HideFlags.None : HideFlags.HideInHierarchy | HideFlags.HideInInspector;
+                        MarkSceneAsDirty();
+                    }
+
+                    // Shadow Distance
+                    EditorGUI.BeginChangeCheck();
+                    svc.shadowDistance = Mathf.Max(EditorGUILayout.FloatField("Shadow Distance", svc.shadowDistance), 0.0f);
+                    if(EditorGUI.EndChangeCheck())
+                    {
+                        ShadowVolumeCamera.DrawAllCameras_Editor();
+                        RefreshSceneViews();
                         MarkSceneAsDirty();
                     }
                 }
