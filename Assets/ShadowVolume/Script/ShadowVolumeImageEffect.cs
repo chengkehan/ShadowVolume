@@ -2,7 +2,9 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-public interface ShadowVolumeImageEffect
+public abstract class ShadowVolumeImageEffect : MonoBehaviour
 {
-    void DrawImageEffect(RenderTexture source, RenderTexture destination);
+    public bool available = true;
+
+    abstract public void DrawImageEffect(RenderTexture source, RenderTexture destination);
 }
