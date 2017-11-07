@@ -136,8 +136,6 @@ public class ShadowVolumeCamera : MonoBehaviour
 
     private void UpdateCommandBuffer_AfterAlpha(ShadowVolumeObject[] svos)
     {
-        //UpdateShadowDistanceKeywords();
-
         ACommandBuffer cbAfterAlpha = GetAfterAlphaCB();
 
         cbAfterAlpha.AddToCamera(mainCam);
@@ -780,21 +778,6 @@ public class ShadowVolumeCamera : MonoBehaviour
         {
             imageEffects.Clear();
             imageEffects = null;
-        }
-    }
-
-    private void UpdateShadowDistanceKeywords()
-    {
-        if(drawingMtrl != null)
-        {
-            if (IsShadowDistanceEnabled())
-            {
-                drawingMtrl.EnableKeyword("SHADOW_DISTANCE_ON");
-            }
-            else
-            {
-                drawingMtrl.DisableKeyword("SHADOW_DISTANCE_ON");
-            }
         }
     }
 
