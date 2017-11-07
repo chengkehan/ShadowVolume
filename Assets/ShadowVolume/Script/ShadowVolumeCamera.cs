@@ -699,7 +699,8 @@ public class ShadowVolumeCamera : MonoBehaviour
                     continue;
                 }
 
-                if (mono.enabled)
+                ShadowVolumeImageEffect imageEffect = imageEffects[i].effect;
+                if (imageEffect.available)
                 {
                     if(src == null)
                     {
@@ -710,7 +711,6 @@ public class ShadowVolumeCamera : MonoBehaviour
                         dest = RenderTexture.GetTemporary(source.width, source.height, 0, RenderTextureFormat.ARGB32);
                     }
 
-                    ShadowVolumeImageEffect imageEffect = imageEffects[i].effect;
                     imageEffect.DrawImageEffect(src, dest);
 
                     RenderTexture temp = src;
@@ -767,6 +767,15 @@ public class ShadowVolumeCamera : MonoBehaviour
                     iei.effect = mono as ShadowVolumeImageEffect;
                     iei.mono = mono;
                     imageEffects.Add(iei);
+
+                    if(isRenderTextureComposite)
+                    {
+                        mono.enabled = false;
+                    }
+                    else
+                    {
+                        mono.enabled = iei.effect.available;
+                    }
                 }
             }
         }
