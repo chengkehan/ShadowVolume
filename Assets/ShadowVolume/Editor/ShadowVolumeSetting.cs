@@ -580,7 +580,7 @@ public class ShadowVolumeSetting : EditorWindow
                             }
 
                             EditorGUI.BeginChangeCheck();
-                            svc.shadowDistanceFadeLength = Mathf.Max(EditorGUILayout.FloatField("Fade Length", svc.shadowDistanceFadeLength), 0.0f);
+                            svc.shadowDistanceFadeLength = Mathf.Max(EditorGUILayout.FloatField("Fade Length", svc.shadowDistanceFadeLength), 0.1f);
                             if (EditorGUI.EndChangeCheck())
                             {
                                 ShadowVolumeCamera.DrawAllCameras_Editor();

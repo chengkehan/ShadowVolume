@@ -63,7 +63,7 @@ public class ShadowVolumeCamera : MonoBehaviour
 
 	private int shadowVolumeColorRT = 0;
 
-    private int shadowDistanceUniformId = 0;
+    private int shadowDistanceFadeLengthUniformId = 0;
 
     private SMAA smaa = null;
 
@@ -379,7 +379,8 @@ public class ShadowVolumeCamera : MonoBehaviour
     }
 
     private void Update()
-    { 
+    {
+        UpdateShadowDistanceKeywords();
         UpdateMaterialUniforms();
          
 #if UNITY_EDITOR
@@ -437,7 +438,7 @@ public class ShadowVolumeCamera : MonoBehaviour
 
         shadowVolumeRT = Shader.PropertyToID("_ShadowVolumeRT");
 		shadowVolumeColorRT = Shader.PropertyToID("_ShadowVolumeColorRT");
-        shadowDistanceUniformId = Shader.PropertyToID("_ShadowVolumeDistance");
+        shadowDistanceFadeLengthUniformId = Shader.PropertyToID("_ShadowVolumeDistanceFadeLength");
 
         mainCam = GetComponent<Camera>();
 
@@ -554,9 +555,9 @@ public class ShadowVolumeCamera : MonoBehaviour
     {
         if(drawingMtrl != null)
         {
-            if (IsShadowDistanceEnabled())
+            if (IsShadowDistanceEnabled() && shadowDistanceFade)
             {
-                drawingMtrl.SetFloat(shadowDistanceUniformId, shadowDistance);
+                drawingMtrl.SetFloat(shadowDistanceFadeLengthUniformId, shadowDistanceFadeLength);
             }
             drawingMtrl.SetColor(shadowColorUniformName, shadowColor);
         }
@@ -824,6 +825,30 @@ public class ShadowVolumeCamera : MonoBehaviour
     private void ReleaseSVOs()
     {
         static_svos = null;
+    }
+
+    private void UpdateShadowDistanceKeywords()
+    {
+        if(drawingMtrl == null)
+        {
+            return; 
+        }
+
+        string keyword = "SHADOW_VOLUME_DISTANCE_FADE";
+        if (IsShadowDistanceEnabled() && shadowDistanceFade)
+        {
+            if (!drawingMtrl.IsKeywordEnabled(keyword))
+            {
+                drawingMtrl.EnableKeyword(keyword);
+            }
+        }
+        else
+        {
+            if (drawingMtrl.IsKeywordEnabled(keyword))
+            {
+                drawingMtrl.DisableKeyword(keyword);
+            }
+        }
     }
 
     private bool IsSceneViewCamera()
