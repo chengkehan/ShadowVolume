@@ -177,7 +177,7 @@ public class ShadowVolumeCamera : MonoBehaviour
 
         ReleaseSVOs();
 
-        int pass_two_side_stencil = 4;
+        int pass_two_side_stencil = IsShadowDistanceFadeEnabled() ? 10 : 4;
         int pass_back_face = IsShadowDistanceFadeEnabled() ? 7 : 0;
         int pass_front_face = IsShadowDistanceFadeEnabled() ? 8 : 1;
         int pass_zero_stencil = 3;
@@ -220,11 +220,12 @@ public class ShadowVolumeCamera : MonoBehaviour
             if (svObjs != null)
             {
                 Vector3 camWPos = mainCam.transform.position;
+                Vector3 camWForward = mainCam.transform.forward;
                 bool isShadowDistanceEnabled = IsShadowDistanceEnabled();
 
                 foreach (var svObj in svObjs)
                 {
-                    if(IsShadowVolulmeObjectVisible(svObj, isShadowDistanceEnabled, ref camWPos))
+                    if(IsShadowVolulmeObjectVisible(svObj, isShadowDistanceEnabled, ref camWPos, ref camWForward))
                     {
                         MeshFilter mf = svObj.meshFilter;
                         if (mf != null && mf.sharedMesh != null)
@@ -586,7 +587,7 @@ public class ShadowVolumeCamera : MonoBehaviour
         {
             if (IsShadowDistanceFadeEnabled())
             {
-                drawingMtrl.SetVector(shadowDistanceUniformId, new Vector4(shadowDistance, shadowDistanceFadeLength, 0, 0));
+                drawingMtrl.SetVector(shadowDistanceUniformId, new Vector4(shadowDistance, shadowDistanceFadeLength, shadowDistance - shadowDistanceFadeLength, 0));
             }
             drawingMtrl.SetColor(shadowColorUniformName, shadowColor);
         }
@@ -846,13 +847,13 @@ public class ShadowVolumeCamera : MonoBehaviour
         return isRenderTextureComposite && IsShadowDistanceEnabled() && shadowDistanceFade;
     }
 
-    private bool IsShadowVolulmeObjectVisible(ShadowVolumeObject svo, bool isShadowDistanceEnabled, ref Vector3 camWPos)
+    private bool IsShadowVolulmeObjectVisible(ShadowVolumeObject svo, bool isShadowDistanceEnabled, ref Vector3 camWPos, ref Vector3 camWForward)
     {
         bool visible = svo.IsVisible();
 
         if(isShadowDistanceEnabled)
         {
-            float dist = (camWPos - svo.wPos).magnitude;
+            float dist = Vector3.Dot(svo.wPos - camWPos, camWForward);
             visible = dist < shadowDistance;
         }
 

@@ -25,7 +25,7 @@
 	uniform sampler2D _ShadowVolumeRT;
 	uniform sampler2D _ShadowVolumeFadeRT;
 	uniform sampler2D _ShadowVolumeColorRT;
-	uniform float2 _ShadowVolumeDistance;/*x:ShadowDistance, y:FadeLength*/
+	uniform float3 _ShadowVolumeDistance;/*x:ShadowDistance, y:FadeLength, z:x-y*/
 
 	v2f vert_sv_stencil (appdata v)
 	{
@@ -53,10 +53,11 @@
 		shadow distance = ac
 		fade length = ab
 		*/
-		float d_c = length(wPos - _WorldSpaceCameraPos);
+		float3 d_c_vec = wPos - _WorldSpaceCameraPos;
+		float d_c = dot(d_c_vec, unity_WorldToCamera[2].xyz);
 		float shadowDistance = _ShadowVolumeDistance.x;
 		float fadeLength = _ShadowVolumeDistance.y;
-		float b_c = shadowDistance - fadeLength;
+		float b_c = _ShadowVolumeDistance.z;
 		float d_b = max(d_c - b_c, 0);
 		float fade = d_b / fadeLength;
 		o.fade = fade;
@@ -360,6 +361,25 @@
 			CGPROGRAM
 			#pragma vertex vert_shadow_fade
 			#pragma fragment frag_shadow_fade
+			ENDCG
+		}
+
+		// Two-Side Stencil(Shadow Fade)
+		// Pass 10
+		Pass
+		{
+			Stencil{
+				Ref 1
+				Comp Always
+				ZFailBack IncrWrap
+				ZFailFront DecrWrap
+			}
+			ZWrite Off
+			ColorMask A
+			Cull Off
+			CGPROGRAM
+			#pragma vertex vert_sv_stencil_fade
+			#pragma fragment frag_sv_stencil_fade
 			ENDCG
 		}
 	}
