@@ -31,6 +31,14 @@ public class ShadowVolumeCamera : MonoBehaviour
     [HideInInspector]
     public float shadowDistance = 0.0f;
 
+    [SerializeField]
+    [HideInInspector]
+    public bool shadowDistanceFade = false;
+
+    [SerializeField]
+    [HideInInspector]
+    public float shadowDistanceFadeLength = 3.0f;
+
     private const string CB_NAME = "Shadow Volume Drawing CommandBuffer";
 
     private Material drawingMtrl = null;
@@ -108,6 +116,8 @@ public class ShadowVolumeCamera : MonoBehaviour
         destination.isRenderTextureComposite = source.isRenderTextureComposite;
         destination.anti_aliasing = source.anti_aliasing;
         destination.shadowDistance = source.shadowDistance;
+        destination.shadowDistanceFade = source.shadowDistanceFade;
+        destination.shadowDistanceFadeLength = source.shadowDistanceFadeLength;
     }
 #endif
 
@@ -793,7 +803,7 @@ public class ShadowVolumeCamera : MonoBehaviour
         }
     }
 
-    private bool IsShadowDistanceEnabled()
+    public bool IsShadowDistanceEnabled()
     {
         return shadowDistance > 0.0001f;
     }
