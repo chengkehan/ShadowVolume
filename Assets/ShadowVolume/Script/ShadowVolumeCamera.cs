@@ -89,18 +89,25 @@ public class ShadowVolumeCamera : MonoBehaviour
             ShadowVolumeCamera svc = sceneViewCam.GetComponent<ShadowVolumeCamera>();
             if (svc != null)
             {
-                if(asvc != null)
-                {
-                    svc.shadowColor = asvc.shadowColor;
-                    svc.isTwoSideStencil = asvc.isTwoSideStencil;
-                    svc.isRenderTextureComposite = asvc.isRenderTextureComposite;
-                    svc.anti_aliasing = asvc.anti_aliasing;
-                    svc.shadowDistance = asvc.shadowDistance;
-                }
+                SyncShadowVolumeCamera(asvc, svc);
                 svc.Update();
                 svc.UpdateCommandBuffers();
             }
         }
+    }
+
+    private static void SyncShadowVolumeCamera(ShadowVolumeCamera source, ShadowVolumeCamera destination)
+    {
+        if(source == null || destination == null)
+        {
+            return;
+        }
+
+        destination.shadowColor = source.shadowColor;
+        destination.isTwoSideStencil = source.isTwoSideStencil;
+        destination.isRenderTextureComposite = source.isRenderTextureComposite;
+        destination.anti_aliasing = source.anti_aliasing;
+        destination.shadowDistance = source.shadowDistance;
     }
 #endif
 
@@ -483,11 +490,7 @@ public class ShadowVolumeCamera : MonoBehaviour
             {
                 svc = sceneViewCam.gameObject.AddComponent<ShadowVolumeCamera>();
             }
-            svc.shadowColor = shadowColor;
-            svc.isTwoSideStencil = isTwoSideStencil;
-            svc.isRenderTextureComposite = isRenderTextureComposite;
-            svc.anti_aliasing = anti_aliasing;
-            svc.shadowDistance = shadowDistance;
+            SyncShadowVolumeCamera(this, svc);
         }
 #endif
     }
