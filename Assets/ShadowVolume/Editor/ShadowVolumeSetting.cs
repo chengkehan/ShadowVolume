@@ -568,7 +568,7 @@ public class ShadowVolumeSetting : EditorWindow
                         }
 
                         // Shadow Distance Fade
-                        if (svc.IsShadowDistanceEnabled())
+                        if (svc.IsShadowDistanceEnabled() && svc.isRenderTextureComposite)
                         {
                             EditorGUI.BeginChangeCheck();
                             svc.shadowDistanceFade = EditorGUILayout.Toggle("Fade", svc.shadowDistanceFade);
