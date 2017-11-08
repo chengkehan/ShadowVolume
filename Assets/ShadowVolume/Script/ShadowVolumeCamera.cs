@@ -380,7 +380,6 @@ public class ShadowVolumeCamera : MonoBehaviour
 
     private void Update()
     {
-        UpdateShadowDistanceKeywords();
         UpdateMaterialUniforms();
          
 #if UNITY_EDITOR
@@ -555,7 +554,7 @@ public class ShadowVolumeCamera : MonoBehaviour
     {
         if(drawingMtrl != null)
         {
-            if (IsShadowDistanceEnabled() && shadowDistanceFade)
+            if (IsShadowDistanceFadeEnabled())
             {
                 drawingMtrl.SetFloat(shadowDistanceFadeLengthUniformId, shadowDistanceFadeLength);
             }
@@ -809,6 +808,11 @@ public class ShadowVolumeCamera : MonoBehaviour
         return shadowDistance > 0.0001f;
     }
 
+    private bool IsShadowDistanceFadeEnabled()
+    {
+        return isRenderTextureComposite && IsShadowDistanceEnabled() && shadowDistanceFade;
+    }
+
     private bool IsShadowVolulmeObjectVisible(ShadowVolumeObject svo, bool isShadowDistanceEnabled, ref Vector3 camWPos)
     {
         bool visible = svo.IsVisible();
@@ -825,30 +829,6 @@ public class ShadowVolumeCamera : MonoBehaviour
     private void ReleaseSVOs()
     {
         static_svos = null;
-    }
-
-    private void UpdateShadowDistanceKeywords()
-    {
-        if(drawingMtrl == null)
-        {
-            return; 
-        }
-
-        string keyword = "SHADOW_VOLUME_DISTANCE_FADE";
-        if (IsShadowDistanceEnabled() && shadowDistanceFade)
-        {
-            if (!drawingMtrl.IsKeywordEnabled(keyword))
-            {
-                drawingMtrl.EnableKeyword(keyword);
-            }
-        }
-        else
-        {
-            if (drawingMtrl.IsKeywordEnabled(keyword))
-            {
-                drawingMtrl.DisableKeyword(keyword);
-            }
-        }
     }
 
     private bool IsSceneViewCamera()
