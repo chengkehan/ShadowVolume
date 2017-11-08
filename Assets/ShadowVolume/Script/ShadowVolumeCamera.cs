@@ -168,11 +168,18 @@ public class ShadowVolumeCamera : MonoBehaviour
 
         ReleaseSVOs();
 
+        int pass_two_side_stencil = 4;
+        int pass_back_face = 0;
+        int pass_front_face = 1;
+        int pass_zero_stencil = 3;
+        int pass_draw_shadow = isRenderTextureComposite ? 6 : 2;
+        int pass_composite_shadow = 5;
+
         ShadowVolumeCombined[] combinedObjs = static_combinedSVOs == null || !Application.isPlaying ? FindObjectsOfType<ShadowVolumeCombined>() : static_combinedSVOs;
         static_combinedSVOs = combinedObjs;
         if (combinedObjs != null && combinedObjs.Length > 0)
         {
-            cbAfterAlpha.CB.DrawMesh(screenMesh, Matrix4x4.identity, drawingMtrl, 0, 3);
+            cbAfterAlpha.CB.DrawMesh(screenMesh, Matrix4x4.identity, drawingMtrl, 0, pass_zero_stencil);
             foreach (var combinedObj in combinedObjs)
             {
                 MeshFilter mf = combinedObj.GetComponent<MeshFilter>();
@@ -180,20 +187,20 @@ public class ShadowVolumeCamera : MonoBehaviour
                 {
                     if (isTwoSideStencil)
                     {
-                        cbAfterAlpha.CB.DrawMesh(mf.sharedMesh, Matrix4x4.identity, drawingMtrl, 0, 4);
+                        cbAfterAlpha.CB.DrawMesh(mf.sharedMesh, Matrix4x4.identity, drawingMtrl, 0, pass_two_side_stencil);
                     }
                     else
                     {
-                        cbAfterAlpha.CB.DrawMesh(mf.sharedMesh, Matrix4x4.identity, drawingMtrl, 0, 0);
-                        cbAfterAlpha.CB.DrawMesh(mf.sharedMesh, Matrix4x4.identity, drawingMtrl, 0, 1);
+                        cbAfterAlpha.CB.DrawMesh(mf.sharedMesh, Matrix4x4.identity, drawingMtrl, 0, pass_back_face);
+                        cbAfterAlpha.CB.DrawMesh(mf.sharedMesh, Matrix4x4.identity, drawingMtrl, 0, pass_front_face);
                     }
                 }
             }
-            cbAfterAlpha.CB.DrawMesh(screenMesh, Matrix4x4.identity, drawingMtrl, 0, isRenderTextureComposite ? 6 : 2);
+            cbAfterAlpha.CB.DrawMesh(screenMesh, Matrix4x4.identity, drawingMtrl, 0, pass_draw_shadow);
         }
         else
         {
-            cbAfterAlpha.CB.DrawMesh(screenMesh, Matrix4x4.identity, drawingMtrl, 0, 3);
+            cbAfterAlpha.CB.DrawMesh(screenMesh, Matrix4x4.identity, drawingMtrl, 0, pass_zero_stencil);
             ShadowVolumeObject[] svObjs = svos == null || !Application.isPlaying ? FindObjectsOfType<ShadowVolumeObject>() : svos;
             static_svos = svObjs;
             UpdateBounds();
@@ -213,36 +220,36 @@ public class ShadowVolumeCamera : MonoBehaviour
                             bool twoSubMeshes = mf.sharedMesh.subMeshCount == 2;
                             if (isTwoSideStencil)
                             {
-                                cbAfterAlpha.CB.DrawMesh(mf.sharedMesh, l2w, drawingMtrl, 0, 4);
+                                cbAfterAlpha.CB.DrawMesh(mf.sharedMesh, l2w, drawingMtrl, 0, pass_two_side_stencil);
                                 if (twoSubMeshes)
                                 {
-                                    cbAfterAlpha.CB.DrawMesh(mf.sharedMesh, l2w, drawingMtrl, 1, 4);
+                                    cbAfterAlpha.CB.DrawMesh(mf.sharedMesh, l2w, drawingMtrl, 1, pass_two_side_stencil);
                                 }
                             }
                             else
                             {
-                                cbAfterAlpha.CB.DrawMesh(mf.sharedMesh, l2w, drawingMtrl, 0, 0);
+                                cbAfterAlpha.CB.DrawMesh(mf.sharedMesh, l2w, drawingMtrl, 0, pass_back_face);
                                 if (twoSubMeshes)
                                 {
-                                    cbAfterAlpha.CB.DrawMesh(mf.sharedMesh, l2w, drawingMtrl, 1, 0);
+                                    cbAfterAlpha.CB.DrawMesh(mf.sharedMesh, l2w, drawingMtrl, 1, pass_back_face);
                                 }
-                                cbAfterAlpha.CB.DrawMesh(mf.sharedMesh, l2w, drawingMtrl, 0, 1);
+                                cbAfterAlpha.CB.DrawMesh(mf.sharedMesh, l2w, drawingMtrl, 0, pass_front_face);
                                 if (twoSubMeshes)
                                 {
-                                    cbAfterAlpha.CB.DrawMesh(mf.sharedMesh, l2w, drawingMtrl, 1, 1);
+                                    cbAfterAlpha.CB.DrawMesh(mf.sharedMesh, l2w, drawingMtrl, 1, pass_front_face);
                                 }
                             }
                         }
                     }
                 }
             }
-            cbAfterAlpha.CB.DrawMesh(screenMesh, Matrix4x4.identity, drawingMtrl, 0, isRenderTextureComposite ? 6 : 2);
+            cbAfterAlpha.CB.DrawMesh(screenMesh, Matrix4x4.identity, drawingMtrl, 0, pass_draw_shadow);
         }
 
         if (isRenderTextureComposite)
         {
             cbAfterAlpha.CB.SetGlobalTexture(shadowVolumeColorRT, GetMainCamRT());
-            cbAfterAlpha.CB.Blit(null, GetCompositeRT(), drawingMtrl, 5);
+            cbAfterAlpha.CB.Blit(null, GetCompositeRT(), drawingMtrl, pass_composite_shadow);
             cbAfterAlpha.CB.ReleaseTemporaryRT(shadowVolumeRT);
         }
     }
