@@ -61,9 +61,11 @@ public class ShadowVolumeCamera : MonoBehaviour
 
     private int shadowVolumeRT = 0;
 
+    private int shadowVolumeFadeRT = 0;
+
 	private int shadowVolumeColorRT = 0;
 
-    private int shadowDistanceFadeLengthUniformId = 0;
+    private int shadowDistanceUniformId = 0;
 
     private SMAA smaa = null;
 
@@ -164,15 +166,22 @@ public class ShadowVolumeCamera : MonoBehaviour
             cbAfterAlpha.CB.GetTemporaryRT(shadowVolumeRT, mainCamRT.width, mainCamRT.height, 0, FilterMode.Bilinear, RenderTextureFormat.ARGB32);
             cbAfterAlpha.CB.SetRenderTarget(shadowVolumeRT, mainCamRT);
             cbAfterAlpha.CB.ClearRenderTarget(false, true, Color.white);
+
+            if(IsShadowDistanceFadeEnabled())
+            {
+                cbAfterAlpha.CB.GetTemporaryRT(shadowVolumeFadeRT, mainCamRT.width, mainCamRT.height, 0, FilterMode.Bilinear, RenderTextureFormat.ARGB32);
+                cbAfterAlpha.CB.SetRenderTarget(shadowVolumeFadeRT, mainCamRT);
+                cbAfterAlpha.CB.ClearRenderTarget(false, true, Color.white);
+            }
         }
 
         ReleaseSVOs();
 
         int pass_two_side_stencil = 4;
-        int pass_back_face = 0;
-        int pass_front_face = 1;
+        int pass_back_face = IsShadowDistanceFadeEnabled() ? 7 : 0;
+        int pass_front_face = IsShadowDistanceFadeEnabled() ? 8 : 1;
         int pass_zero_stencil = 3;
-        int pass_draw_shadow = isRenderTextureComposite ? 6 : 2;
+        int pass_draw_shadow = isRenderTextureComposite ? (IsShadowDistanceFadeEnabled() ? 9 : 6) : 2;
         int pass_composite_shadow = 5;
 
         ShadowVolumeCombined[] combinedObjs = static_combinedSVOs == null || !Application.isPlaying ? FindObjectsOfType<ShadowVolumeCombined>() : static_combinedSVOs;
@@ -195,6 +204,10 @@ public class ShadowVolumeCamera : MonoBehaviour
                         cbAfterAlpha.CB.DrawMesh(mf.sharedMesh, Matrix4x4.identity, drawingMtrl, 0, pass_front_face);
                     }
                 }
+            }
+            if (IsShadowDistanceFadeEnabled())
+            {
+                cbAfterAlpha.CB.SetRenderTarget(shadowVolumeRT, mainCamRT);
             }
             cbAfterAlpha.CB.DrawMesh(screenMesh, Matrix4x4.identity, drawingMtrl, 0, pass_draw_shadow);
         }
@@ -243,6 +256,10 @@ public class ShadowVolumeCamera : MonoBehaviour
                     }
                 }
             }
+            if (IsShadowDistanceFadeEnabled())
+            {
+                cbAfterAlpha.CB.SetRenderTarget(shadowVolumeRT, mainCamRT);
+            }
             cbAfterAlpha.CB.DrawMesh(screenMesh, Matrix4x4.identity, drawingMtrl, 0, pass_draw_shadow);
         }
 
@@ -251,6 +268,11 @@ public class ShadowVolumeCamera : MonoBehaviour
             cbAfterAlpha.CB.SetGlobalTexture(shadowVolumeColorRT, GetMainCamRT());
             cbAfterAlpha.CB.Blit(null, GetCompositeRT(), drawingMtrl, pass_composite_shadow);
             cbAfterAlpha.CB.ReleaseTemporaryRT(shadowVolumeRT);
+
+            if(IsShadowDistanceFadeEnabled())
+            {
+                cbAfterAlpha.CB.ReleaseTemporaryRT(shadowVolumeFadeRT);
+            }
         }
     }
 
@@ -443,8 +465,9 @@ public class ShadowVolumeCamera : MonoBehaviour
         drawingMtrl.name = "Shadow Volume Drawing Material";
 
         shadowVolumeRT = Shader.PropertyToID("_ShadowVolumeRT");
-		shadowVolumeColorRT = Shader.PropertyToID("_ShadowVolumeColorRT");
-        shadowDistanceFadeLengthUniformId = Shader.PropertyToID("_ShadowVolumeDistanceFadeLength");
+        shadowVolumeFadeRT = Shader.PropertyToID("_ShadowVolumeFadeRT");
+        shadowVolumeColorRT = Shader.PropertyToID("_ShadowVolumeColorRT");
+        shadowDistanceUniformId = Shader.PropertyToID("_ShadowVolumeDistance");
 
         mainCam = GetComponent<Camera>();
 
@@ -563,7 +586,7 @@ public class ShadowVolumeCamera : MonoBehaviour
         {
             if (IsShadowDistanceFadeEnabled())
             {
-                drawingMtrl.SetFloat(shadowDistanceFadeLengthUniformId, shadowDistanceFadeLength);
+                drawingMtrl.SetVector(shadowDistanceUniformId, new Vector4(shadowDistance, shadowDistanceFadeLength, 0, 0));
             }
             drawingMtrl.SetColor(shadowColorUniformName, shadowColor);
         }
@@ -577,6 +600,9 @@ public class ShadowVolumeCamera : MonoBehaviour
             screenMesh.name = "ShadowVolume ScreenQuad";
             screenMesh.vertices = new Vector3[] {
                 new Vector3(-1, -1, 0), new Vector3(-1, 1, 0), new Vector3(1, 1, 0), new Vector3(1, -1, 0)
+            };
+            screenMesh.uv = new Vector2[] {
+                new Vector2(0, 0), new Vector2(0, 1), new Vector2(1, 1), new Vector2(1, 0)
             };
             screenMesh.triangles = new int[] { 0, 1, 2, 2, 3, 0 };
         }
