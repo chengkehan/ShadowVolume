@@ -31,6 +31,14 @@ public class ShadowVolumeCamera : MonoBehaviour
     [HideInInspector]
     public float shadowDistance = 0.0f;
 
+    [SerializeField]
+    [HideInInspector]
+    public bool shadowDistanceFade = false;
+
+    [SerializeField]
+    [HideInInspector]
+    public float shadowDistanceFadeLength = 3.0f;
+
     private const string CB_NAME = "Shadow Volume Drawing CommandBuffer";
 
     private Material drawingMtrl = null;
@@ -52,6 +60,8 @@ public class ShadowVolumeCamera : MonoBehaviour
     private RenderTexture compositeRT = null;
 
     private int shadowVolumeRT = 0;
+
+    private int shadowVolumeFadeRT = 0;
 
 	private int shadowVolumeColorRT = 0;
 
@@ -89,18 +99,27 @@ public class ShadowVolumeCamera : MonoBehaviour
             ShadowVolumeCamera svc = sceneViewCam.GetComponent<ShadowVolumeCamera>();
             if (svc != null)
             {
-                if(asvc != null)
-                {
-                    svc.shadowColor = asvc.shadowColor;
-                    svc.isTwoSideStencil = asvc.isTwoSideStencil;
-                    svc.isRenderTextureComposite = asvc.isRenderTextureComposite;
-                    svc.anti_aliasing = asvc.anti_aliasing;
-                    svc.shadowDistance = asvc.shadowDistance;
-                }
+                SyncShadowVolumeCamera(asvc, svc);
                 svc.Update();
                 svc.UpdateCommandBuffers();
             }
         }
+    }
+
+    private static void SyncShadowVolumeCamera(ShadowVolumeCamera source, ShadowVolumeCamera destination)
+    {
+        if(source == null || destination == null)
+        {
+            return;
+        }
+
+        destination.shadowColor = source.shadowColor;
+        destination.isTwoSideStencil = source.isTwoSideStencil;
+        destination.isRenderTextureComposite = source.isRenderTextureComposite;
+        destination.anti_aliasing = source.anti_aliasing;
+        destination.shadowDistance = source.shadowDistance;
+        destination.shadowDistanceFade = source.shadowDistanceFade;
+        destination.shadowDistanceFadeLength = source.shadowDistanceFadeLength;
     }
 #endif
 
@@ -147,15 +166,29 @@ public class ShadowVolumeCamera : MonoBehaviour
             cbAfterAlpha.CB.GetTemporaryRT(shadowVolumeRT, mainCamRT.width, mainCamRT.height, 0, FilterMode.Bilinear, RenderTextureFormat.ARGB32);
             cbAfterAlpha.CB.SetRenderTarget(shadowVolumeRT, mainCamRT);
             cbAfterAlpha.CB.ClearRenderTarget(false, true, Color.white);
+
+            if(IsShadowDistanceFadeEnabled())
+            {
+                cbAfterAlpha.CB.GetTemporaryRT(shadowVolumeFadeRT, mainCamRT.width, mainCamRT.height, 0, FilterMode.Bilinear, RenderTextureFormat.ARGB32);
+                cbAfterAlpha.CB.SetRenderTarget(shadowVolumeFadeRT, mainCamRT);
+                cbAfterAlpha.CB.ClearRenderTarget(false, true, Color.white);
+            }
         }
 
         ReleaseSVOs();
+
+        int pass_two_side_stencil = IsShadowDistanceFadeEnabled() ? 10 : 4;
+        int pass_back_face = IsShadowDistanceFadeEnabled() ? 7 : 0;
+        int pass_front_face = IsShadowDistanceFadeEnabled() ? 8 : 1;
+        int pass_zero_stencil = 3;
+        int pass_draw_shadow = isRenderTextureComposite ? (IsShadowDistanceFadeEnabled() ? 9 : 6) : 2;
+        int pass_composite_shadow = 5;
 
         ShadowVolumeCombined[] combinedObjs = static_combinedSVOs == null || !Application.isPlaying ? FindObjectsOfType<ShadowVolumeCombined>() : static_combinedSVOs;
         static_combinedSVOs = combinedObjs;
         if (combinedObjs != null && combinedObjs.Length > 0)
         {
-            cbAfterAlpha.CB.DrawMesh(screenMesh, Matrix4x4.identity, drawingMtrl, 0, 3);
+            cbAfterAlpha.CB.DrawMesh(screenMesh, Matrix4x4.identity, drawingMtrl, 0, pass_zero_stencil);
             foreach (var combinedObj in combinedObjs)
             {
                 MeshFilter mf = combinedObj.GetComponent<MeshFilter>();
@@ -163,31 +196,36 @@ public class ShadowVolumeCamera : MonoBehaviour
                 {
                     if (isTwoSideStencil)
                     {
-                        cbAfterAlpha.CB.DrawMesh(mf.sharedMesh, Matrix4x4.identity, drawingMtrl, 0, 4);
+                        cbAfterAlpha.CB.DrawMesh(mf.sharedMesh, Matrix4x4.identity, drawingMtrl, 0, pass_two_side_stencil);
                     }
                     else
                     {
-                        cbAfterAlpha.CB.DrawMesh(mf.sharedMesh, Matrix4x4.identity, drawingMtrl, 0, 0);
-                        cbAfterAlpha.CB.DrawMesh(mf.sharedMesh, Matrix4x4.identity, drawingMtrl, 0, 1);
+                        cbAfterAlpha.CB.DrawMesh(mf.sharedMesh, Matrix4x4.identity, drawingMtrl, 0, pass_back_face);
+                        cbAfterAlpha.CB.DrawMesh(mf.sharedMesh, Matrix4x4.identity, drawingMtrl, 0, pass_front_face);
                     }
                 }
             }
-            cbAfterAlpha.CB.DrawMesh(screenMesh, Matrix4x4.identity, drawingMtrl, 0, isRenderTextureComposite ? 6 : 2);
+            if (IsShadowDistanceFadeEnabled())
+            {
+                cbAfterAlpha.CB.SetRenderTarget(shadowVolumeRT, mainCamRT);
+            }
+            cbAfterAlpha.CB.DrawMesh(screenMesh, Matrix4x4.identity, drawingMtrl, 0, pass_draw_shadow);
         }
         else
         {
-            cbAfterAlpha.CB.DrawMesh(screenMesh, Matrix4x4.identity, drawingMtrl, 0, 3);
+            cbAfterAlpha.CB.DrawMesh(screenMesh, Matrix4x4.identity, drawingMtrl, 0, pass_zero_stencil);
             ShadowVolumeObject[] svObjs = svos == null || !Application.isPlaying ? FindObjectsOfType<ShadowVolumeObject>() : svos;
             static_svos = svObjs;
             UpdateBounds();
             if (svObjs != null)
             {
                 Vector3 camWPos = mainCam.transform.position;
+                Vector3 camWForward = mainCam.transform.forward;
                 bool isShadowDistanceEnabled = IsShadowDistanceEnabled();
 
                 foreach (var svObj in svObjs)
                 {
-                    if(IsShadowVolulmeObjectVisible(svObj, isShadowDistanceEnabled, ref camWPos))
+                    if(IsShadowVolulmeObjectVisible(svObj, isShadowDistanceEnabled, ref camWPos, ref camWForward))
                     {
                         MeshFilter mf = svObj.meshFilter;
                         if (mf != null && mf.sharedMesh != null)
@@ -196,37 +234,46 @@ public class ShadowVolumeCamera : MonoBehaviour
                             bool twoSubMeshes = mf.sharedMesh.subMeshCount == 2;
                             if (isTwoSideStencil)
                             {
-                                cbAfterAlpha.CB.DrawMesh(mf.sharedMesh, l2w, drawingMtrl, 0, 4);
+                                cbAfterAlpha.CB.DrawMesh(mf.sharedMesh, l2w, drawingMtrl, 0, pass_two_side_stencil);
                                 if (twoSubMeshes)
                                 {
-                                    cbAfterAlpha.CB.DrawMesh(mf.sharedMesh, l2w, drawingMtrl, 1, 4);
+                                    cbAfterAlpha.CB.DrawMesh(mf.sharedMesh, l2w, drawingMtrl, 1, pass_two_side_stencil);
                                 }
                             }
                             else
                             {
-                                cbAfterAlpha.CB.DrawMesh(mf.sharedMesh, l2w, drawingMtrl, 0, 0);
+                                cbAfterAlpha.CB.DrawMesh(mf.sharedMesh, l2w, drawingMtrl, 0, pass_back_face);
                                 if (twoSubMeshes)
                                 {
-                                    cbAfterAlpha.CB.DrawMesh(mf.sharedMesh, l2w, drawingMtrl, 1, 0);
+                                    cbAfterAlpha.CB.DrawMesh(mf.sharedMesh, l2w, drawingMtrl, 1, pass_back_face);
                                 }
-                                cbAfterAlpha.CB.DrawMesh(mf.sharedMesh, l2w, drawingMtrl, 0, 1);
+                                cbAfterAlpha.CB.DrawMesh(mf.sharedMesh, l2w, drawingMtrl, 0, pass_front_face);
                                 if (twoSubMeshes)
                                 {
-                                    cbAfterAlpha.CB.DrawMesh(mf.sharedMesh, l2w, drawingMtrl, 1, 1);
+                                    cbAfterAlpha.CB.DrawMesh(mf.sharedMesh, l2w, drawingMtrl, 1, pass_front_face);
                                 }
                             }
                         }
                     }
                 }
             }
-            cbAfterAlpha.CB.DrawMesh(screenMesh, Matrix4x4.identity, drawingMtrl, 0, isRenderTextureComposite ? 6 : 2);
+            if (IsShadowDistanceFadeEnabled())
+            {
+                cbAfterAlpha.CB.SetRenderTarget(shadowVolumeRT, mainCamRT);
+            }
+            cbAfterAlpha.CB.DrawMesh(screenMesh, Matrix4x4.identity, drawingMtrl, 0, pass_draw_shadow);
         }
 
         if (isRenderTextureComposite)
         {
             cbAfterAlpha.CB.SetGlobalTexture(shadowVolumeColorRT, GetMainCamRT());
-            cbAfterAlpha.CB.Blit(null, GetCompositeRT(), drawingMtrl, 5);
+            cbAfterAlpha.CB.Blit(null, GetCompositeRT(), drawingMtrl, pass_composite_shadow);
             cbAfterAlpha.CB.ReleaseTemporaryRT(shadowVolumeRT);
+
+            if(IsShadowDistanceFadeEnabled())
+            {
+                cbAfterAlpha.CB.ReleaseTemporaryRT(shadowVolumeFadeRT);
+            }
         }
     }
 
@@ -362,7 +409,7 @@ public class ShadowVolumeCamera : MonoBehaviour
     }
 
     private void Update()
-    { 
+    {
         UpdateMaterialUniforms();
          
 #if UNITY_EDITOR
@@ -419,7 +466,8 @@ public class ShadowVolumeCamera : MonoBehaviour
         drawingMtrl.name = "Shadow Volume Drawing Material";
 
         shadowVolumeRT = Shader.PropertyToID("_ShadowVolumeRT");
-		shadowVolumeColorRT = Shader.PropertyToID("_ShadowVolumeColorRT");
+        shadowVolumeFadeRT = Shader.PropertyToID("_ShadowVolumeFadeRT");
+        shadowVolumeColorRT = Shader.PropertyToID("_ShadowVolumeColorRT");
         shadowDistanceUniformId = Shader.PropertyToID("_ShadowVolumeDistance");
 
         mainCam = GetComponent<Camera>();
@@ -483,11 +531,7 @@ public class ShadowVolumeCamera : MonoBehaviour
             {
                 svc = sceneViewCam.gameObject.AddComponent<ShadowVolumeCamera>();
             }
-            svc.shadowColor = shadowColor;
-            svc.isTwoSideStencil = isTwoSideStencil;
-            svc.isRenderTextureComposite = isRenderTextureComposite;
-            svc.anti_aliasing = anti_aliasing;
-            svc.shadowDistance = shadowDistance;
+            SyncShadowVolumeCamera(this, svc);
         }
 #endif
     }
@@ -541,9 +585,9 @@ public class ShadowVolumeCamera : MonoBehaviour
     {
         if(drawingMtrl != null)
         {
-            if (IsShadowDistanceEnabled())
+            if (IsShadowDistanceFadeEnabled())
             {
-                drawingMtrl.SetFloat(shadowDistanceUniformId, shadowDistance);
+                drawingMtrl.SetVector(shadowDistanceUniformId, new Vector4(shadowDistance, shadowDistanceFadeLength, shadowDistance - shadowDistanceFadeLength, 0));
             }
             drawingMtrl.SetColor(shadowColorUniformName, shadowColor);
         }
@@ -557,6 +601,9 @@ public class ShadowVolumeCamera : MonoBehaviour
             screenMesh.name = "ShadowVolume ScreenQuad";
             screenMesh.vertices = new Vector3[] {
                 new Vector3(-1, -1, 0), new Vector3(-1, 1, 0), new Vector3(1, 1, 0), new Vector3(1, -1, 0)
+            };
+            screenMesh.uv = new Vector2[] {
+                new Vector2(0, 0), new Vector2(0, 1), new Vector2(1, 1), new Vector2(1, 0)
             };
             screenMesh.triangles = new int[] { 0, 1, 2, 2, 3, 0 };
         }
@@ -790,18 +837,23 @@ public class ShadowVolumeCamera : MonoBehaviour
         }
     }
 
-    private bool IsShadowDistanceEnabled()
+    public bool IsShadowDistanceEnabled()
     {
         return shadowDistance > 0.0001f;
     }
 
-    private bool IsShadowVolulmeObjectVisible(ShadowVolumeObject svo, bool isShadowDistanceEnabled, ref Vector3 camWPos)
+    private bool IsShadowDistanceFadeEnabled()
+    {
+        return isRenderTextureComposite && IsShadowDistanceEnabled() && shadowDistanceFade;
+    }
+
+    private bool IsShadowVolulmeObjectVisible(ShadowVolumeObject svo, bool isShadowDistanceEnabled, ref Vector3 camWPos, ref Vector3 camWForward)
     {
         bool visible = svo.IsVisible();
 
         if(isShadowDistanceEnabled)
         {
-            float dist = (camWPos - svo.wPos).magnitude;
+            float dist = Vector3.Dot(svo.wPos - camWPos, camWForward);
             visible = dist < shadowDistance;
         }
 

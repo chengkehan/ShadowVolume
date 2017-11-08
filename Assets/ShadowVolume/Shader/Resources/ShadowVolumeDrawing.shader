@@ -18,11 +18,14 @@
 	{
 		float2 uv : TEXCOORD0;
 		float4 vertex : SV_POSITION;
+		float fade : TEXCOORD1;
 	};
 	
 	uniform fixed4 _ShadowColor;
 	uniform sampler2D _ShadowVolumeRT;
+	uniform sampler2D _ShadowVolumeFadeRT;
 	uniform sampler2D _ShadowVolumeColorRT;
+	uniform float3 _ShadowVolumeDistance;/*x:ShadowDistance, y:FadeLength, z:x-y*/
 
 	v2f vert_sv_stencil (appdata v)
 	{
@@ -35,6 +38,36 @@
 	fixed4 frag_sv_stencil (v2f i) : SV_Target
 	{
 		return fixed4(0,0,0,0);
+	}
+
+	v2f vert_sv_stencil_fade (appdata v)
+	{
+		v2f o;
+		UNITY_INITIALIZE_OUTPUT(v2f, o);
+		o.vertex = UnityObjectToClipPos(v.vertex);
+		
+		float3 wPos = mul(unity_ObjectToWorld, v.vertex).xyz;
+		/*
+		|---&--|--------------|
+		a   d  b              c
+		shadow distance = ac
+		fade length = ab
+		*/
+		float3 d_c_vec = wPos - _WorldSpaceCameraPos;
+		float d_c = dot(d_c_vec, unity_WorldToCamera[2].xyz);
+		float shadowDistance = _ShadowVolumeDistance.x;
+		float fadeLength = _ShadowVolumeDistance.y;
+		float b_c = _ShadowVolumeDistance.z;
+		float d_b = max(d_c - b_c, 0);
+		float fade = d_b / fadeLength;
+		o.fade = fade;
+
+		return o;
+	}
+
+	fixed4 frag_sv_stencil_fade (v2f i) : SV_Target
+	{
+		return fixed4(0,0,0,i.fade);
 	}
 
 	v2f vert_shadow(appdata v)
@@ -54,6 +87,29 @@
 	fixed4 frag_shadow(v2f i) : SV_Target
 	{
 		return _ShadowColor;
+	}
+
+	v2f vert_shadow_fade(appdata v)
+	{
+		v2f o;
+		UNITY_INITIALIZE_OUTPUT(v2f, o);
+		o.vertex = v.vertex;
+		o.uv = v.uv;
+
+		if (_ProjectionParams.x < 0)
+		{
+			o.vertex.y *= -1;
+		}
+
+		return o;
+	}
+
+	fixed4 frag_shadow_fade(v2f i) : SV_Target
+	{
+		fixed4 fade = tex2D(_ShadowVolumeFadeRT, i.uv).a;
+		fixed4 shadow = _ShadowColor;
+		shadow.rgb += fade; 
+		return shadow;
 	}
 
 	v2f vert_overlay_shadow (appdata v)
@@ -251,6 +307,79 @@
 			CGPROGRAM
 			#pragma vertex vert_shadow
 			#pragma fragment frag_shadow
+			ENDCG
+		}
+
+		// ZFail(Shadow Fade)
+		// Pass 7
+		Pass
+		{
+			Stencil{
+				Ref 1
+				Comp Always
+				ZFail IncrSat
+			}
+			ZWrite Off
+			ColorMask A
+			Cull Front
+			CGPROGRAM
+			#pragma vertex vert_sv_stencil_fade
+			#pragma fragment frag_sv_stencil_fade
+			ENDCG
+		}
+		// Pass 8
+		Pass
+		{
+			Stencil{
+				Ref 1
+				Comp Always
+				ZFail DecrSat
+			}
+			ZWrite Off
+			ColorMask A
+			Cull Back
+			CGPROGRAM
+			#pragma vertex vert_sv_stencil_fade
+			#pragma fragment frag_sv_stencil_fade
+			ENDCG
+		}
+
+		// RenderTexture Composite(Shadow Fade)
+		// Draw Shadow
+		// Pass 9
+		Pass
+		{
+			Stencil{
+				Ref 0
+				Comp NotEqual
+				Pass Keep
+			}
+			ZWrite Off
+			ColorMask RGB
+			Cull Back
+			ZTest Always
+			CGPROGRAM
+			#pragma vertex vert_shadow_fade
+			#pragma fragment frag_shadow_fade
+			ENDCG
+		}
+
+		// Two-Side Stencil(Shadow Fade)
+		// Pass 10
+		Pass
+		{
+			Stencil{
+				Ref 1
+				Comp Always
+				ZFailBack IncrWrap
+				ZFailFront DecrWrap
+			}
+			ZWrite Off
+			ColorMask A
+			Cull Off
+			CGPROGRAM
+			#pragma vertex vert_sv_stencil_fade
+			#pragma fragment frag_sv_stencil_fade
 			ENDCG
 		}
 	}
