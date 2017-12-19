@@ -37,8 +37,6 @@ public class ShadowVolumeSetting : EditorWindow
 
     private float capsOffset = 0.001f;
 
-    private bool twoSubMeshes = false;
-
     private BakingTaskManager bakingTaskManager = new BakingTaskManager();
 
     private void OnEnable()
@@ -145,7 +143,7 @@ public class ShadowVolumeSetting : EditorWindow
 
             Mesh mesh = mf.sharedMesh;
             Vector3[] vertices = mesh.vertices;
-            int[] triangles = mesh.triangles;
+            int[] triangles = mesh.GetTriangles(0);
 
             if (combinedVertices.Count + vertices.Length >= 65000)
             {
@@ -310,6 +308,7 @@ public class ShadowVolumeSetting : EditorWindow
             svObj.sourceMeshFilter = completeBakingTask.Transform.GetComponent<MeshFilter>();
             svObj.meshFilter = mf;
 			svObj.l2w = mf.transform.localToWorldMatrix;
+            svObj.boundsAABB = mr.bounds;
             svObj.wPos = mf.transform.position;
         }
         else
@@ -336,6 +335,8 @@ public class ShadowVolumeSetting : EditorWindow
             }
             mr.sharedMaterial = debugMtrl;
             mr.enabled = false;
+
+            svObj.boundsAABB = mr.bounds;
         }
     }
 
@@ -411,9 +412,6 @@ public class ShadowVolumeSetting : EditorWindow
         dirLight = EditorGUILayout.ObjectField("Directional Light", dirLight, typeof(Light), true) as Light;
 
         capsOffset = EditorGUILayout.FloatField("Caps Offset", capsOffset);
-
-        //twoSubMeshes = EditorGUILayout.Toggle("Two SubMeshes", twoSubMeshes);
-        twoSubMeshes = false;
     }
 
     private void OnGUI_Buttons()
@@ -555,6 +553,16 @@ public class ShadowVolumeSetting : EditorWindow
                         MarkSceneAsDirty();
                     }
 
+                    // Reduce Rendering Triangles
+                    EditorGUI.BeginChangeCheck();
+                    svc.reduceRenderingTriangles = EditorGUILayout.Toggle("Reduce Rendering Triangles", svc.reduceRenderingTriangles);
+                    if(EditorGUI.EndChangeCheck())
+                    {
+                        ShadowVolumeCamera.DrawAllCameras_Editor();
+                        RefreshSceneViews();
+                        MarkSceneAsDirty();
+                    }
+
                     BeginBox();
                     {
                         // Shadow Distance
@@ -565,28 +573,6 @@ public class ShadowVolumeSetting : EditorWindow
                             ShadowVolumeCamera.DrawAllCameras_Editor();
                             RefreshSceneViews();
                             MarkSceneAsDirty();
-                        }
-
-                        // Shadow Distance Fade
-                        if (svc.IsShadowDistanceEnabled() && svc.isRenderTextureComposite)
-                        {
-                            EditorGUI.BeginChangeCheck();
-                            svc.shadowDistanceFade = EditorGUILayout.Toggle("Fade", svc.shadowDistanceFade);
-                            if (EditorGUI.EndChangeCheck())
-                            {
-                                ShadowVolumeCamera.DrawAllCameras_Editor();
-                                RefreshSceneViews();
-                                MarkSceneAsDirty();
-                            }
-
-                            EditorGUI.BeginChangeCheck();
-                            svc.shadowDistanceFadeLength = Mathf.Min(Mathf.Max(EditorGUILayout.FloatField("Fade Length", svc.shadowDistanceFadeLength), 0.1f), svc.shadowDistance);
-                            if (EditorGUI.EndChangeCheck())
-                            {
-                                ShadowVolumeCamera.DrawAllCameras_Editor();
-                                RefreshSceneViews();
-                                MarkSceneAsDirty();
-                            }
                         }
                     }
                     EndBox();
@@ -749,7 +735,7 @@ public class ShadowVolumeSetting : EditorWindow
         Transform transform = go.transform;
 
         ABakingTask task = new ABakingTask();
-        task.Init(transform, transform.localToWorldMatrix, transform.worldToLocalMatrix, dirLight.transform.forward, mf.sharedMesh, capsOffset, groundLayer, twoSubMeshes);
+        task.Init(transform, transform.localToWorldMatrix, transform.worldToLocalMatrix, dirLight.transform.forward, mf.sharedMesh, capsOffset, groundLayer);
         bakingTaskManager.AddTask(task);
     }
 
@@ -1000,7 +986,6 @@ public class ShadowVolumeSetting : EditorWindow
         private Vector3 oLightDir = Vector3.zero;
         private float svoffset = 0.001f;
         private int groundLayer = 0;
-        private bool twoSubMeshes = false;
 
         private Mesh mesh = null;
         private Vector3[] meshVertices = null;
@@ -1029,28 +1014,20 @@ public class ShadowVolumeSetting : EditorWindow
             Mesh newMesh = new Mesh();
             newMesh.name = "Shadow Volume " + mesh.name;
             newMesh.vertices = newVertices;
-            if(twoSubMeshes)
-            {
-                // 2 SubMeshes
-                newMesh.subMeshCount = 2;
-                newMesh.SetTriangles(newTriangles, 0);
-                newMesh.SetTriangles(newTrianglesCaps, 1);
-            }
-            else
-            {
-                // 1 SubMesh
-                int[] combinedTriangles = new int[newTriangles.Length + newTrianglesCaps.Length];
-                System.Array.Copy(newTriangles, 0, combinedTriangles, 0, newTriangles.Length);
-                System.Array.Copy(newTrianglesCaps, 0, combinedTriangles, newTriangles.Length, newTrianglesCaps.Length);
-                newMesh.subMeshCount = 1;
-                newMesh.vertices = newVertices;
-                newMesh.triangles = combinedTriangles;
-            }
+
+            int[] combinedTriangles = new int[newTriangles.Length + newTrianglesCaps.Length];
+            System.Array.Copy(newTriangles, 0, combinedTriangles, 0, newTriangles.Length);
+            System.Array.Copy(newTrianglesCaps, 0, combinedTriangles, newTriangles.Length, newTrianglesCaps.Length);
+            newMesh.subMeshCount = 2;
+            newMesh.vertices = newVertices;
+            newMesh.SetTriangles(combinedTriangles, 0);
+            newMesh.SetTriangles(newTriangles, 1);
+
             newMesh.RecalculateBounds();
             return newMesh;
         }
 
-        public void Init(Transform transform, Matrix4x4 l2w, Matrix4x4 w2l, Vector3 wLightDir, Mesh mesh, float svoffset, int groundLayer, bool twoSubMeshes)
+        public void Init(Transform transform, Matrix4x4 l2w, Matrix4x4 w2l, Vector3 wLightDir, Mesh mesh, float svoffset, int groundLayer)
         {
             this.transform = transform;
             this.l2w = l2w;
@@ -1062,7 +1039,6 @@ public class ShadowVolumeSetting : EditorWindow
             this.meshTriangles = mesh.triangles;
             this.svoffset = svoffset;
             this.groundLayer = 1 << groundLayer;
-            this.twoSubMeshes = twoSubMeshes;
         }
 
         public void Start()

@@ -79,7 +79,10 @@ public class ShadowVolumeObjectEditor : ShadowVolumeNoTransformEditor<ShadowVolu
 
                 DrawBounds(Color.white, svo.source.transform.localToWorldMatrix, center, exts);
             }
-            
+
+            //{
+            //    DrawBounds(Color.gray, Matrix4x4.identity, svo.boundsAABB.center, svo.boundsAABB.extents);
+            //}
         }
     }
 

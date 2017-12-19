@@ -24,6 +24,10 @@ public class ShadowVolumeObject : MonoBehaviour
 
     [SerializeField]
     [HideInInspector]
+    public Bounds boundsAABB;
+
+    [SerializeField]
+    [HideInInspector]
     public Vector3 wPos;
 
     public bool IsVisible()
