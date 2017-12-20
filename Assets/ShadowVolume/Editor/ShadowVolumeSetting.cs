@@ -256,8 +256,10 @@ public class ShadowVolumeSetting : EditorWindow
                 return;
             }
 
+            Mesh originalMesh = mf.sharedMesh;
+            mf.sharedMesh = Mesh.Instantiate<Mesh>(mf.sharedMesh);
             File.WriteAllText(savePath, ShadowVolume_ObjExporter.DoExport(svo.gameObject, EXPORT_OBJ_COMMENT));
-
+            mf.sharedMesh = originalMesh;
 
             AssetDatabase.Refresh();
         }
@@ -726,16 +728,11 @@ public class ShadowVolumeSetting : EditorWindow
             Debug.LogError("Skip a Shadow Volume Baking, becase of there is no Mesh. " + go.name, go);
             return;
         }
-        if(!mf.sharedMesh.isReadable)
-        {
-            Debug.LogError("Skip a Shadow Volume Baking, becase of Mesh is not readable. " + go.name, go);
-            return;
-        }
 
         Transform transform = go.transform;
 
         ABakingTask task = new ABakingTask();
-        task.Init(transform, transform.localToWorldMatrix, transform.worldToLocalMatrix, dirLight.transform.forward, mf.sharedMesh, capsOffset, groundLayer);
+        task.Init(transform, transform.localToWorldMatrix, transform.worldToLocalMatrix, dirLight.transform.forward, Mesh.Instantiate<Mesh>(mf.sharedMesh), capsOffset, groundLayer);
         bakingTaskManager.AddTask(task);
     }
 
